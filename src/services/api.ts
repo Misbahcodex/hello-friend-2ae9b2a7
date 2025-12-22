@@ -1,7 +1,3 @@
-git fetch origin
-git checkout -b fix/api-base-empty-response origin/main
-
-cat > src/services/api.ts <<'EOF'
 // Construct API base URL - backend runs on port 8000
 const API_BASE = import.meta.env.VITE_API_BASE_URL || (() => {
   if (typeof window !== 'undefined') {
@@ -339,5 +335,3 @@ class ApiService {
 }
 
 export const api = new ApiService();
-EOF
-
