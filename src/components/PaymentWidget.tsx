@@ -9,12 +9,11 @@ interface PaymentWidgetProps {
   onPaymentSuccess?: () => void;
 }
 
-export function PaymentWidget({ transactionId, amount, buyerName, onPaymentSuccess }: PaymentWidgetProps) {
+export function PaymentWidget({ transactionId, amount, onPaymentSuccess }: PaymentWidgetProps) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'pending' | 'success' | 'failed'>('idle');
-  const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
 
   const handleSTKPush = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +32,6 @@ export function PaymentWidget({ transactionId, amount, buyerName, onPaymentSucce
 
       if (response.success && response.data) {
         const data = response.data as { checkoutRequestID: string };
-        setCheckoutRequestId(data.checkoutRequestID);
         setPaymentStatus('pending');
         
         // Start polling for payment status
@@ -50,7 +48,7 @@ export function PaymentWidget({ transactionId, amount, buyerName, onPaymentSucce
     }
   };
 
-  const pollPaymentStatus = (checkoutId: string) => {
+  const pollPaymentStatus = (_checkoutId: string) => {
     const pollInterval = setInterval(async () => {
       try {
         const response = await api.request('/api/v1/payments/check-status', {

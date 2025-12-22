@@ -279,7 +279,7 @@ class ApiService {
     });
   }
 
-  async confirmDelivery(transactionId: string, deliveryOTP: string) {
+  async confirmDeliveryWithOTP(transactionId: string, deliveryOTP: string) {
     return this.request('/api/v1/payments/confirm-delivery', {
       method: 'POST',
       body: { transactionId, deliveryOTP },
