@@ -109,8 +109,33 @@ class ApiService {
         }
       }
 
-      const data = await response.json();
-      return data;
+      const contentType = response.headers.get('content-type') || '';
+      const rawText = await response.text();
+
+      // If the backend is down/misrouted, we might receive HTML (the SPA index.html) or an empty response.
+      if (!rawText.trim()) {
+        return { success: false, error: 'Empty response from server', code: 'EMPTY_RESPONSE' };
+      }
+
+      if (!contentType.includes('application/json')) {
+        return {
+          success: false,
+          error: 'Server returned an invalid response (expected JSON)',
+          code: 'INVALID_RESPONSE',
+          message: rawText.slice(0, 200),
+        };
+      }
+
+      try {
+        return JSON.parse(rawText) as ApiResponse<T>;
+      } catch {
+        return {
+          success: false,
+          error: 'Failed to parse server response',
+          code: 'JSON_PARSE_ERROR',
+          message: rawText.slice(0, 200),
+        };
+      }
     } catch (error) {
       console.error('API request error:', error);
       return {
