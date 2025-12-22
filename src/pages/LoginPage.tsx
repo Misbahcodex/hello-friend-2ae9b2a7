@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Phone } from 'lucide-react';
+import { z } from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function LoginPage() {
@@ -13,12 +14,30 @@ export function LoginPage() {
     const [error, setError] = useState('');
     const [devOtp, setDevOtp] = useState<string | null>(null);
 
+    const phoneSchema = z
+        .string()
+        .trim()
+        .refine((val) => {
+            const digits = val.replace(/\D/g, '');
+            return digits.length >= 10 && digits.length <= 15;
+        }, 'Enter a valid phone number');
+
+    const normalizePhone = (val: string) => val.replace(/\D/g, '');
+
     const handleRequestOTP = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true);
         setError('');
 
-        const result = await requestOTP(phone, 'LOGIN');
+        const parsed = phoneSchema.safeParse(phone);
+        if (!parsed.success) {
+            setError(parsed.error.issues[0]?.message || 'Enter a valid phone number');
+            return;
+        }
+
+        const normalizedPhone = normalizePhone(phone);
+
+        setIsLoading(true);
+        const result = await requestOTP(normalizedPhone, 'LOGIN');
         
         if (result.success) {
             setStep('otp');
@@ -33,10 +52,17 @@ export function LoginPage() {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true);
         setError('');
 
-        const result = await login(phone, otp);
+        const parsed = phoneSchema.safeParse(phone);
+        if (!parsed.success) {
+            setError(parsed.error.issues[0]?.message || 'Enter a valid phone number');
+            return;
+        }
+
+        setIsLoading(true);
+        const normalizedPhone = normalizePhone(phone);
+        const result = await login(normalizedPhone, otp);
 
         if (result.success) {
             const user = JSON.parse(localStorage.getItem('user') || '{}');

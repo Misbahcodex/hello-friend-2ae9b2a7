@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, ArrowRight, User, ShoppingBag, Phone } from 'lucide-react';
+import { z } from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function SignupPage() {
@@ -11,6 +12,16 @@ export function SignupPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [devOtp, setDevOtp] = useState<string | null>(null);
+
+    const phoneSchema = z
+        .string()
+        .trim()
+        .refine((val) => {
+            const digits = val.replace(/\D/g, '');
+            return digits.length >= 10 && digits.length <= 15;
+        }, 'Enter a valid phone number');
+
+    const normalizePhone = (val: string) => val.replace(/\D/g, '');
 
     const [formData, setFormData] = useState({
         firstName: '',
@@ -27,10 +38,18 @@ export function SignupPage() {
 
     const handleRequestOTP = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true);
         setError('');
 
-        const result = await requestOTP(formData.phone, 'REGISTRATION');
+        const parsed = phoneSchema.safeParse(formData.phone);
+        if (!parsed.success) {
+            setError(parsed.error.issues[0]?.message || 'Enter a valid phone number');
+            return;
+        }
+
+        const normalizedPhone = normalizePhone(formData.phone);
+
+        setIsLoading(true);
+        const result = await requestOTP(normalizedPhone, 'REGISTRATION');
 
         if (result.success) {
             setStep('otp');
@@ -45,11 +64,18 @@ export function SignupPage() {
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true);
         setError('');
 
+        const parsed = phoneSchema.safeParse(formData.phone);
+        if (!parsed.success) {
+            setError(parsed.error.issues[0]?.message || 'Enter a valid phone number');
+            return;
+        }
+
+        setIsLoading(true);
+
         const result = await register({
-            phone: formData.phone,
+            phone: normalizePhone(formData.phone),
             name: `${formData.firstName} ${formData.lastName}`.trim(),
             email: formData.email || undefined,
             role: role || 'BUYER',
