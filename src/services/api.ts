@@ -1,9 +1,21 @@
+git fetch origin
+git checkout -b fix/api-base-empty-response origin/main
+
+cat > src/services/api.ts <<'EOF'
 // Construct API base URL - backend runs on port 8000
 const API_BASE = import.meta.env.VITE_API_BASE_URL || (() => {
   if (typeof window !== 'undefined') {
-    const origin = window.location.origin;
-    // Replace frontend port with backend port 8000
-    return origin.replace(/:(\d+)$/, ':8000');
+    try {
+      // Build a base URL that uses the same protocol/hostname as the frontend but forces port 8000.
+      // This avoids depending on a port being present in window.location.origin.
+      const url = new URL(window.location.href);
+      const protocol = url.protocol; // includes trailing :
+      const hostname = url.hostname;
+      return `${protocol}//${hostname}:8000`;
+    } catch {
+      // Fallback to origin if URL parsing fails
+      return window.location.origin;
+    }
   }
   return 'http://localhost:8000';
 })();
@@ -116,7 +128,12 @@ class ApiService {
 
       // If the backend is down/misrouted, we might receive HTML (the SPA index.html) or an empty response.
       if (!rawText.trim()) {
-        return { success: false, error: 'Empty response from server', code: 'EMPTY_RESPONSE' };
+        // Include status and URL to make debugging easier
+        return {
+          success: false,
+          error: `Empty response from server (status: ${response.status}, url: ${response.url})`,
+          code: 'EMPTY_RESPONSE',
+        };
       }
 
       if (!contentType.includes('application/json')) {
@@ -322,3 +339,5 @@ class ApiService {
 }
 
 export const api = new ApiService();
+EOF
+
