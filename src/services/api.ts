@@ -1,9 +1,11 @@
-// Construct API base URL - in Replit, replace port 5000 with 4000
+// Construct API base URL - backend runs on port 8000
 const API_BASE = import.meta.env.VITE_API_BASE_URL || (() => {
   if (typeof window !== 'undefined') {
-    return window.location.origin.replace(':5000', ':4000');
+    const origin = window.location.origin;
+    // Replace frontend port with backend port 8000
+    return origin.replace(/:(\d+)$/, ':8000');
   }
-  return 'http://localhost:4000';
+  return 'http://localhost:8000';
 })();
 
 interface ApiResponse<T = unknown> {
