@@ -1,0 +1,157 @@
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import { prisma } from './config/database';
+import authRoutes from './routes/authRoutes';
+import walletRoutes from './routes/walletRoutes';
+import transactionRoutes from './routes/transactionRoutes';
+import sellerRoutes from './routes/sellerRoutes';
+import buyerRoutes from './routes/buyerRoutes';
+import adminRoutes from './routes/adminRoutes';
+import notificationRoutes from './routes/notificationRoutes';
+import paymentRoutes from './routes/paymentRoutes';
+import { globalRateLimiter, sanitizeInput, detectSuspiciousActivity } from './middleware/security';
+
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5000', 'http://localhost:5173'],
+    credentials: true,
+    methods: ['GET', 'POST']
+  }
+});
+const PORT = process.env.PORT || 8000;
+
+// Track active user connections
+const userConnections: Map<string, string> = new Map();
+
+// Trust proxy for rate limiting behind reverse proxy
+app.set('trust proxy', 1);
+
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable for API
+  crossOriginEmbedderPolicy: false,
+}));
+
+// CORS configuration
+app.use(cors({
+  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'http://localhost:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+}));
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Logging
+if (process.env.NODE_ENV !== 'test') {
+  app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+}
+
+// Security middleware
+app.use(sanitizeInput);
+app.use(detectSuspiciousActivity);
+app.use(globalRateLimiter);
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// API Routes
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/wallet', walletRoutes);
+app.use('/api/v1/transactions', transactionRoutes);
+app.use('/api/v1/seller', sellerRoutes);
+app.use('/api/v1/buyer', buyerRoutes);
+app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/payments', paymentRoutes);
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Endpoint not found',
+    code: 'NOT_FOUND',
+  });
+});
+
+// Global error handler
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('❌ Unhandled error:', err);
+  
+  res.status(500).json({
+    success: false,
+    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
+    code: 'SERVER_ERROR',
+  });
+});
+
+// Socket.IO event handlers
+io.on('connection', (socket) => {
+  console.log(`✅ User connected: ${socket.id}`);
+
+  // User joins their notification room
+  socket.on('join-notifications', (userId: string) => {
+    socket.join(`user:${userId}`);
+    userConnections.set(userId, socket.id);
+    console.log(`📢 User ${userId} joined notifications`);
+  });
+
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    // Remove from user connections map
+    for (const [userId, socketId] of userConnections.entries()) {
+      if (socketId === socket.id) {
+        userConnections.delete(userId);
+        console.log(`🔌 User ${userId} disconnected`);
+        break;
+      }
+    }
+  });
+});
+
+// Export io for use in controllers
+export { io, userConnections };
+
+// Start server
+async function startServer() {
+  try {
+    // Test database connection
+    await prisma.$connect();
+    console.log('✅ Database connected successfully');
+
+    httpServer.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
+      console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('🛑 SIGTERM received. Shutting down gracefully...');
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('🛑 SIGINT received. Shutting down gracefully...');
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+startServer();
+
+export default app;
