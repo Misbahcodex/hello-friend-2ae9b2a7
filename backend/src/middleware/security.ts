@@ -49,8 +49,13 @@ export const otpRateLimiter = rateLimit({
     code: 'OTP_RATE_LIMIT',
   },
   keyGenerator: (req) => {
-    // Rate limit by phone number if provided
-    return req.body.phone || req.ip || 'unknown';
+    // Rate limit by phone number if provided, otherwise use IP from request
+    const phone = (req.body as any)?.phone;
+    return phone || (req.ip ?? 'unknown');
+  },
+  skip: (req) => {
+    // Skip rate limiting if phone number is provided (trusted source)
+    return !(req.body as any)?.phone;
   },
 });
 
