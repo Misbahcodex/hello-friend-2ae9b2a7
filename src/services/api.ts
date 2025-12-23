@@ -9,16 +9,21 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || (() => {
       // In Replit, convert dev domain from 5000 port to 8000 port
       // E.g., c4077ec9-...-5000-...picard.replit.dev -> c4077ec9-...-8000-...picard.replit.dev
       if (hostname.includes('replit.dev')) {
-        return `${protocol}//${hostname.replace(/-\d+-/, '-8000-')}`;
+        const backendDomain = hostname.replace(/-5000-/, '-8000-');
+        return `${protocol}//${backendDomain}`;
       }
       
-      // For localhost development
+      // For localhost/127.0.0.1 development - use http://127.0.0.1:8000
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return `${protocol}//127.0.0.1:8000`;
+      }
+      
       return `${protocol}//${hostname}:8000`;
     } catch {
-      return 'http://localhost:8000';
+      return 'http://127.0.0.1:8000';
     }
   }
-  return 'http://localhost:8000';
+  return 'http://127.0.0.1:8000';
 })();
 
 interface ApiResponse<T = unknown> {
