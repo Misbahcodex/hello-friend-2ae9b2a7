@@ -2,15 +2,20 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || (() => {
   if (typeof window !== 'undefined') {
     try {
-      // Build a base URL that uses the same protocol/hostname as the frontend but forces port 8000.
-      // This avoids depending on a port being present in window.location.origin.
       const url = new URL(window.location.href);
-      const protocol = url.protocol; // includes trailing :
       const hostname = url.hostname;
+      const protocol = url.protocol;
+      
+      // In Replit, convert dev domain from 5000 port to 8000 port
+      // E.g., c4077ec9-...-5000-...picard.replit.dev -> c4077ec9-...-8000-...picard.replit.dev
+      if (hostname.includes('replit.dev')) {
+        return `${protocol}//${hostname.replace(/-\d+-/, '-8000-')}`;
+      }
+      
+      // For localhost development
       return `${protocol}//${hostname}:8000`;
     } catch {
-      // Fallback to origin if URL parsing fails
-      return window.location.origin;
+      return 'http://localhost:8000';
     }
   }
   return 'http://localhost:8000';
