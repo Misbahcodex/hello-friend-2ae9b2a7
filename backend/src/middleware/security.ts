@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import helmet from 'helmet';
 import crypto from 'crypto';
 
@@ -49,13 +49,9 @@ export const otpRateLimiter = rateLimit({
     code: 'OTP_RATE_LIMIT',
   },
   keyGenerator: (req) => {
-    // Rate limit by phone number if provided, otherwise use IP from request
+    // Rate limit by phone number if provided, otherwise use IP helper for IPv6 support
     const phone = (req.body as any)?.phone;
-    return phone || (req.ip ?? 'unknown');
-  },
-  skip: (req) => {
-    // Skip rate limiting if phone number is provided (trusted source)
-    return !(req.body as any)?.phone;
+    return phone || ipKeyGenerator(req);
   },
 });
 
