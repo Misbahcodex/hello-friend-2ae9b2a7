@@ -13,6 +13,7 @@ import buyerRoutes from './routes/buyerRoutes';
 import adminRoutes from './routes/adminRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import paymentRoutes from './routes/paymentRoutes';
+import storeRoutes from './routes/storeRoutes';
 import { globalRateLimiter, sanitizeInput, detectSuspiciousActivity } from './middleware/security';
 
 const app = express();
@@ -102,6 +103,7 @@ app.use('/api/v1/buyer', buyerRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/payments', paymentRoutes);
+app.use('/api/v1/stores', storeRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -157,8 +159,9 @@ async function startServer() {
     await prisma.$connect();
     console.log('✅ Database connected successfully');
 
-    httpServer.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
+    const port = typeof PORT === 'string' ? parseInt(PORT, 10) : PORT;
+    httpServer.listen(port, '0.0.0.0', () => {
+      console.log(`🚀 Server running on http://0.0.0.0:${port}`);
       console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
   } catch (error) {

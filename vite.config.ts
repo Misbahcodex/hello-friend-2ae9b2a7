@@ -10,8 +10,10 @@ export default defineConfig({
     },
   },
   server: {
-    host: "0.0.0.0",
-    port: 5000,
-    allowedHosts: true,
+    host: "::",
+    port: 8080,
+  },
+  optimizeDeps: {
+    include: ['socket.io-client'],
   },
 });
